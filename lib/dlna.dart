@@ -500,19 +500,24 @@ class DeviceManager {
 class DLNAManager {
   static const String UPNP_IP_V4 = '239.255.255.250';
   static const int UPNP_PORT = 1900;
+
   final InternetAddress UPNP_AddressIPv4 = InternetAddress(UPNP_IP_V4);
   Timer _sender = Timer(Duration(seconds: 2), () {});
   Timer _receiver = Timer(Duration(seconds: 2), () {});
   RawDatagramSocket? _socket_server;
   DeviceManager? _deviceManager = DeviceManager();
+
   Future<DeviceManager> start({reusePort = false}) async {
     stop();
     _deviceManager?.devices.close();
     final dm = DeviceManager();
     _deviceManager = dm;
     _socket_server = await RawDatagramSocket.bind(
-        InternetAddress.anyIPv4, UPNP_PORT,
-        reusePort: reusePort);
+      InternetAddress.anyIPv4,
+      UPNP_PORT,
+      reusePort: reusePort,
+    );
+    _socket_server?.writeEventsEnabled = false;
     // https://github.com/dart-lang/sdk/issues/42250 截止到 dart 2.13.4 仍存在问题,期待新版修复
     // 修复IOS joinMulticast 的问题
     if (Platform.isIOS) {
@@ -523,17 +528,25 @@ class DLNAManager {
       );
       for (final interface in interfaces) {
         final value = Uint8List.fromList(
-            UPNP_AddressIPv4.rawAddress + interface.addresses[0].rawAddress);
-        _socket_server!.setRawOption(
-            RawSocketOption(RawSocketOption.levelIPv4, 12, value));
+          UPNP_AddressIPv4.rawAddress + interface.addresses[0].rawAddress,
+        );
+        _socket_server!.setRawOption(RawSocketOption(
+          RawSocketOption.levelIPv4,
+          12,
+          value,
+        ));
       }
     } else {
       _socket_server!.joinMulticast(UPNP_AddressIPv4);
     }
     final r = Random();
-    final socket_client =
-        await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-    _sender = Timer.periodic(Duration(seconds: 3), (Timer t) async {
+    final socket_client = await RawDatagramSocket.bind(
+      InternetAddress.anyIPv4,
+      0,
+    );
+    socket_client.writeEventsEnabled = false;
+
+    void onSend() async {
       final n = r.nextDouble();
       var st = "ssdp:all";
       if (n > 0.3) {
@@ -549,30 +562,50 @@ class DLNAManager {
           'MX: 3\r\n' +
           'MAN: \"ssdp:discover\"\r\n\r\n';
       socket_client.send(msg.codeUnits, UPNP_AddressIPv4, UPNP_PORT);
-      final replay = socket_client.receive();
-      if (replay == null) {
-        return;
+    }
+
+    socket_client.listen((event) async {
+      switch (event) {
+        case RawSocketEvent.read:
+          final replay = socket_client.receive();
+          if (replay == null) {
+            return;
+          }
+          try {
+            String message = String.fromCharCodes(replay.data).trim();
+            await dm.onMessage(message);
+          } catch (e) {
+            print(e);
+          }
+          break;
+        default:
       }
-      try {
-        String message = String.fromCharCodes(replay.data).trim();
-        await dm.onMessage(message);
-      } catch (e) {
-        print(e);
-      }
+    }, onError: (e) {
+      print(e);
     });
-    _receiver = Timer.periodic(Duration(seconds: 2), (Timer t) async {
-      final d = _socket_server!.receive();
-      if (d == null) {
-        return;
+    _socket_server?.listen((event) async {
+      switch (event) {
+        case RawSocketEvent.read:
+          final d = _socket_server!.receive();
+          if (d == null) {
+            return;
+          }
+          try {
+            String message = String.fromCharCodes(d.data).trim();
+            await dm.onMessage(message);
+          } catch (e) {
+            print(e);
+          }
+          break;
+        default:
       }
-      String message = String.fromCharCodes(d.data).trim();
-      // print('Datagram from ${d.address.address}:${d.port}: ${message}');
-      try {
-        await dm.onMessage(message);
-      } catch (e) {
-        print(e);
-      }
+    }, onError: (e) {
+      print(e);
     });
+    _sender = Timer.periodic(Duration(seconds: 3), (_) {
+      onSend();
+    });
+    onSend();
     return dm;
   }
 
