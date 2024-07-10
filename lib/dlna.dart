@@ -22,8 +22,13 @@ String trimLeading(String pattern, String from) {
 }
 
 String htmlEncode(String text) {
-  Map<String, String> mapping = Map.from(
-      {"&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': '&quot;'});
+  Map<String, String> mapping = Map.from({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': '&quot;',
+  });
   mapping.forEach((key, value) {
     text = text.replaceAll(key, value);
   });
@@ -32,8 +37,12 @@ String htmlEncode(String text) {
 
 class DLNADevice {
   final DeviceInfo info;
-  final _rendering_control =
-      Set.from(['SetMute', 'GetMute', 'SetVolume', 'GetVolume']);
+  final _rendering_control = Set.from([
+    'SetMute',
+    'GetMute',
+    'SetVolume',
+    'GetVolume',
+  ]);
 
   DLNADevice(this.info);
 
@@ -162,8 +171,11 @@ class DLNADevice {
 }
 
 class XmlText {
-  static String setPlayURLXml(String url,
-      {String title = "", required PlayType type}) {
+  static String setPlayURLXml(
+    String url, {
+    String title = "",
+    required PlayType type,
+  }) {
     final douyu = RegExp(r'^https?://(\d+)\?douyu$');
     final isdouyu = douyu.firstMatch(url);
     if (isdouyu != null) {
@@ -432,12 +444,14 @@ class DLNAHttp {
 
 class _upnp_msg_parser {
   final String message;
-  _upnp_msg_parser(this.message);
-  parse() async {
+
+  const _upnp_msg_parser(this.message);
+
+  Future<DeviceInfo?> parse() async {
     final lines = message.split('\n');
     final arr = lines.first.split(' ');
     if (arr.length < 3) {
-      return;
+      return null;
     }
     final method = arr[0];
     if (method == 'M-SEARCH') {
@@ -446,13 +460,14 @@ class _upnp_msg_parser {
         method == "HTTP/1.1" ||
         method == "HTTP/1.0") {
       lines.removeAt(0);
-      return await onNotify(lines);
+      return onNotify(lines);
     } else {
       print(message);
     }
+    return null;
   }
 
-  onNotify(List<String> lines) async {
+  Future<DeviceInfo?> onNotify(List<String> lines) async {
     String uri = '';
     lines.forEach((element) {
       final arr = element.split(':');
@@ -466,6 +481,7 @@ class _upnp_msg_parser {
     if (uri != '') {
       return await getInfo(uri);
     }
+    return null;
   }
 
   Future<DeviceInfo> getInfo(String uri) async {
@@ -477,20 +493,22 @@ class _upnp_msg_parser {
 }
 
 class DeviceManager {
-  var t = DateTime.now();
+  var time = DateTime.now();
   final Map<String, DLNADevice> deviceList = Map();
   final StreamController<Map<String, DLNADevice>> devices = StreamController();
+
   DeviceManager();
-  onMessage(String message) async {
+
+  Future<void> onMessage(String message) async {
     final DeviceInfo? info = await _upnp_msg_parser(message).parse();
     if (info != null) {
       final newFound = !deviceList.containsKey(info.URLBase);
       deviceList[info.URLBase] = DLNADevice(info);
       final now = DateTime.now();
-      if (newFound || now.difference(t).inSeconds.abs() > 5) {
+      if (newFound || now.difference(time).inSeconds.abs() > 5) {
         if (!devices.isClosed) {
           devices.add(deviceList);
-          t = now;
+          time = now;
         }
       }
     }
@@ -558,7 +576,7 @@ class DLNAManager {
       }
       String msg = 'M-SEARCH * HTTP/1.1\r\n' +
           'ST: $st\r\n' +
-          'HOST: 239.255.255.250:1900\r\n' +
+          'HOST: $UPNP_IP_V4:$UPNP_PORT\r\n' +
           'MX: 3\r\n' +
           'MAN: \"ssdp:discover\"\r\n\r\n';
       socket_client.send(msg.codeUnits, UPNP_AddressIPv4, UPNP_PORT);
@@ -609,7 +627,7 @@ class DLNAManager {
     return dm;
   }
 
-  stop() {
+  void stop() {
     _sender.cancel();
     _receiver.cancel();
     _socket_server?.close();

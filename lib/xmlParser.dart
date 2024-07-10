@@ -12,8 +12,20 @@ class DeviceInfo {
   final String deviceType;
   final String friendlyName;
   final List<dynamic> serviceList;
+
+  String? _realDeviceType;
+  String? get realDeviceType {
+    return (_realDeviceType ??=
+        RegExp(r"urn:schemas-upnp-org:device:([\w\W]*):[\w]*")
+            .firstMatch(deviceType)?[1]);
+  }
+
   DeviceInfo(
-      this.URLBase, this.deviceType, this.friendlyName, this.serviceList);
+    this.URLBase,
+    this.deviceType,
+    this.friendlyName,
+    this.serviceList,
+  );
 }
 
 class PositionParser {
@@ -138,7 +150,9 @@ class MediaInfoParser {
 class DeviceInfoParser {
   final String text;
   final XmlDocument doc;
+
   DeviceInfoParser(this.text) : doc = XmlDocument.parse(text);
+
   DeviceInfo parse(Uri uri) {
     String URLBase = "";
     try {
