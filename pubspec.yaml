@@ -4,6 +4,6 @@ version: 0.0.9
 repository: https://github.com/suconghou/dlna-dart
 homepage: https://github.com/suconghou/dlna-dart
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: ^2.19.6
 dependencies: 
   xml: ^6.1.0

@@ -37,12 +37,12 @@ String htmlEncode(String text) {
 
 class DLNADevice {
   final DeviceInfo info;
-  final _rendering_control = Set.from([
+  final _rendering_control = {
     'SetMute',
     'GetMute',
     'SetVolume',
     'GetVolume',
-  ]);
+  };
 
   DLNADevice(this.info);
 
@@ -52,7 +52,7 @@ class DLNADevice {
         .firstWhere((element) => element['serviceId'].contains(type));
     if (s != null) {
       final controlURL = trimLeading("/", s["controlURL"]);
-      return base + '/' + controlURL;
+      return '$base/$controlURL';
     }
     throw Exception("not found controlURL");
   }
@@ -75,32 +75,32 @@ class DLNADevice {
       title: title,
       type: type,
     );
-    return request('SetAVTransportURI', Utf8Encoder().convert(data));
+    return request('SetAVTransportURI', const Utf8Encoder().convert(data));
   }
 
   Future<String> play() {
     final data = XmlText.playActionXml();
-    return request('Play', Utf8Encoder().convert(data));
+    return request('Play', const Utf8Encoder().convert(data));
   }
 
   Future<String> pause() {
     final data = XmlText.pauseActionXml();
-    return request('Pause', Utf8Encoder().convert(data));
+    return request('Pause', const Utf8Encoder().convert(data));
   }
 
   Future<String> stop() {
     final data = XmlText.stopActionXml();
-    return request('Stop', Utf8Encoder().convert(data));
+    return request('Stop', const Utf8Encoder().convert(data));
   }
 
   Future<String> seek(String sk) {
     final data = XmlText.seekToXml(sk);
-    return request('Seek', Utf8Encoder().convert(data));
+    return request('Seek', const Utf8Encoder().convert(data));
   }
 
   Future<String> position() {
     final data = XmlText.getPositionXml();
-    return request('GetPositionInfo', Utf8Encoder().convert(data));
+    return request('GetPositionInfo', const Utf8Encoder().convert(data));
   }
 
   Future<String> seekByCurrent(String text, int n) {
@@ -111,57 +111,58 @@ class DLNADevice {
 
   Future<String> getCurrentTransportActions() {
     final data = XmlText.getCurrentTransportActionsXml();
-    return request('GetCurrentTransportActions', Utf8Encoder().convert(data));
+    return request(
+        'GetCurrentTransportActions', const Utf8Encoder().convert(data));
   }
 
   Future<String> getMediaInfo() {
     final data = XmlText.getMediaInfoXml();
-    return request('GetMediaInfo', Utf8Encoder().convert(data));
+    return request('GetMediaInfo', const Utf8Encoder().convert(data));
   }
 
   Future<String> getTransportInfo() {
     final data = XmlText.getTransportInfoXml();
-    return request('GetTransportInfo', Utf8Encoder().convert(data));
+    return request('GetTransportInfo', const Utf8Encoder().convert(data));
   }
 
   Future<String> next() {
     final data = XmlText.nextXml();
-    return request('Next', Utf8Encoder().convert(data));
+    return request('Next', const Utf8Encoder().convert(data));
   }
 
   Future<String> previous() {
     final data = XmlText.previousXml();
-    return request('Previous', Utf8Encoder().convert(data));
+    return request('Previous', const Utf8Encoder().convert(data));
   }
 
   Future<String> setPlayMode(String modeName) {
     final data = XmlText.setPlayModeXml(modeName);
-    return request('SetPlayMode', Utf8Encoder().convert(data));
+    return request('SetPlayMode', const Utf8Encoder().convert(data));
   }
 
   Future<String> getDeviceCapabilities() {
     final data = XmlText.getDeviceCapabilitiesXml();
-    return request('GetDeviceCapabilities', Utf8Encoder().convert(data));
+    return request('GetDeviceCapabilities', const Utf8Encoder().convert(data));
   }
 
   Future<String> mute(bool mute) {
     final data = XmlText.muteXml(mute);
-    return request('SetMute', Utf8Encoder().convert(data));
+    return request('SetMute', const Utf8Encoder().convert(data));
   }
 
   Future<String> getMute() {
     final data = XmlText.muteStateXml();
-    return request('GetMute', Utf8Encoder().convert(data));
+    return request('GetMute', const Utf8Encoder().convert(data));
   }
 
   Future<String> volume(int volume) {
     final data = XmlText.volumeXml(volume);
-    return request('SetVolume', Utf8Encoder().convert(data));
+    return request('SetVolume', const Utf8Encoder().convert(data));
   }
 
   Future<String> getVolume() {
     final data = XmlText.volumeStateXml();
-    return request('GetVolume', Utf8Encoder().convert(data));
+    return request('GetVolume', const Utf8Encoder().convert(data));
   }
 
   Future<String> changeVolume(int value) async {
@@ -469,7 +470,7 @@ class _upnp_msg_parser {
 
   Future<DeviceInfo?> onNotify(List<String> lines) async {
     String uri = '';
-    lines.forEach((element) {
+    for (final element in lines) {
       final arr = element.split(':');
       final key = arr[0].trim().toUpperCase();
       if (key == "LOCATION") {
@@ -477,7 +478,7 @@ class _upnp_msg_parser {
         final value = arr.join(':');
         uri = value.trim();
       }
-    });
+    }
     if (uri != '') {
       return await getInfo(uri);
     }
@@ -494,7 +495,7 @@ class _upnp_msg_parser {
 
 class DeviceManager {
   var time = DateTime.now();
-  final Map<String, DLNADevice> deviceList = Map();
+  final Map<String, DLNADevice> deviceList = {};
   final StreamController<Map<String, DLNADevice>> devices = StreamController();
 
   DeviceManager();
@@ -520,8 +521,8 @@ class DLNAManager {
   static const int UPNP_PORT = 1900;
 
   final InternetAddress UPNP_AddressIPv4 = InternetAddress(UPNP_IP_V4);
-  Timer _sender = Timer(Duration(seconds: 2), () {});
-  Timer _receiver = Timer(Duration(seconds: 2), () {});
+  Timer _sender = Timer(const Duration(seconds: 2), () {});
+  final Timer _receiver = Timer(const Duration(seconds: 2), () {});
   RawDatagramSocket? _socket_server;
   DeviceManager? _deviceManager = DeviceManager();
 
@@ -574,11 +575,8 @@ class DLNAManager {
           st = "urn:schemas-upnp-org:device:MediaRenderer:1";
         }
       }
-      String msg = 'M-SEARCH * HTTP/1.1\r\n' +
-          'ST: $st\r\n' +
-          'HOST: $UPNP_IP_V4:$UPNP_PORT\r\n' +
-          'MX: 3\r\n' +
-          'MAN: \"ssdp:discover\"\r\n\r\n';
+      String msg =
+          'M-SEARCH * HTTP/1.1\r\nST: $st\r\nHOST: $UPNP_IP_V4:$UPNP_PORT\r\nMX: 3\r\nMAN: "ssdp:discover"\r\n\r\n';
       socket_client.send(msg.codeUnits, UPNP_AddressIPv4, UPNP_PORT);
     }
 
@@ -620,7 +618,7 @@ class DLNAManager {
     }, onError: (e) {
       print(e);
     });
-    _sender = Timer.periodic(Duration(seconds: 3), (_) {
+    _sender = Timer.periodic(const Duration(seconds: 3), (_) {
       onSend();
     });
     onSend();
