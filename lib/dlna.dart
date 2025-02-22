@@ -463,7 +463,7 @@ class _upnp_msg_parser {
       lines.removeAt(0);
       return onNotify(lines);
     } else {
-      print(message);
+      DLNAManager.debugPrint(message);
     }
     return null;
   }
@@ -519,12 +519,20 @@ class DeviceManager {
 class DLNAManager {
   static const String UPNP_IP_V4 = '239.255.255.250';
   static const int UPNP_PORT = 1900;
+  static bool kDebugMode = false;
 
   final InternetAddress UPNP_AddressIPv4 = InternetAddress(UPNP_IP_V4);
   Timer _sender = Timer(const Duration(seconds: 2), () {});
   final Timer _receiver = Timer(const Duration(seconds: 2), () {});
   RawDatagramSocket? _socket_server;
   DeviceManager? _deviceManager = DeviceManager();
+
+  static void debugPrint(Object obj) {
+    if (kDebugMode) {
+      // ignore: avoid_print
+      print(obj);
+    }
+  }
 
   Future<DeviceManager> start({reusePort = false}) async {
     stop();
@@ -591,13 +599,13 @@ class DLNAManager {
             String message = String.fromCharCodes(replay.data).trim();
             await dm.onMessage(message);
           } catch (e) {
-            print(e);
+            DLNAManager.debugPrint(e);
           }
           break;
         default:
       }
     }, onError: (e) {
-      print(e);
+      DLNAManager.debugPrint(e);
     });
     _socket_server?.listen((event) async {
       switch (event) {
@@ -610,13 +618,13 @@ class DLNAManager {
             String message = String.fromCharCodes(d.data).trim();
             await dm.onMessage(message);
           } catch (e) {
-            print(e);
+            DLNAManager.debugPrint(e);
           }
           break;
         default:
       }
     }, onError: (e) {
-      print(e);
+      DLNAManager.debugPrint(e);
     });
     _sender = Timer.periodic(const Duration(seconds: 3), (_) {
       onSend();
