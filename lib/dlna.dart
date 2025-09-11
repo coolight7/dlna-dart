@@ -259,7 +259,7 @@ class XmlText {
     </s:Envelope>''';
   }
 
-  static String seekToXml(sk) {
+  static String seekToXml(String sk) {
     return '''<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>
@@ -403,16 +403,29 @@ class XmlText {
 }
 
 class DLNAHttp {
+  static HttpClient createHttpClient() {
+    final context = SecurityContext(withTrustedRoots: false)
+      ..allowLegacyUnsafeRenegotiation = true;
+    return HttpClient(context: context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) {
+        return true;
+      }
+      ..idleTimeout = const Duration(minutes: 2);
+  }
+
   static Future<String> get(Uri uri) async {
-    final client = HttpClient();
+    final client = createHttpClient();
     try {
       const timeout = Duration(seconds: 15);
       final req = await client.getUrl(uri);
       final res = await req.close().timeout(timeout);
-      if (res.statusCode != HttpStatus.ok) {
+      if (res.statusCode ~/ 100 != 2) {
         throw Exception("request $uri error , status ${res.statusCode}");
       }
-      final body = await res.transform(utf8.decoder).join().timeout(timeout);
+      final body = await res
+          .transform(const Utf8Decoder(allowMalformed: true))
+          .join()
+          .timeout(timeout);
       return body;
     } finally {
       client.close();
@@ -420,8 +433,11 @@ class DLNAHttp {
   }
 
   static Future<String> post(
-      Uri uri, Map<String, Object> headers, List<int> data) async {
-    final client = HttpClient();
+    Uri uri,
+    Map<String, Object> headers,
+    List<int> data,
+  ) async {
+    final client = createHttpClient();
     try {
       const timeout = Duration(seconds: 15);
       final req = await client.postUrl(uri);
@@ -431,11 +447,17 @@ class DLNAHttp {
       req.contentLength = data.length;
       req.add(data);
       final res = await req.close().timeout(timeout);
-      if (res.statusCode != HttpStatus.ok) {
-        final body = await res.transform(utf8.decoder).join().timeout(timeout);
+      if (res.statusCode ~/ 100 != 2) {
+        final body = await res
+            .transform(const Utf8Decoder(allowMalformed: true))
+            .join()
+            .timeout(timeout);
         throw Exception("request $uri error , status ${res.statusCode} $body");
       }
-      final body = await res.transform(utf8.decoder).join().timeout(timeout);
+      final body = await res
+          .transform(const Utf8Decoder(allowMalformed: true))
+          .join()
+          .timeout(timeout);
       return body;
     } finally {
       client.close();
@@ -534,7 +556,7 @@ class DLNAManager {
     }
   }
 
-  Future<DeviceManager> start({reusePort = false}) async {
+  Future<DeviceManager> start({bool reusePort = false}) async {
     stop();
     _deviceManager?.devices.close();
     final dm = DeviceManager();
