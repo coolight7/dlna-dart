@@ -1,3 +1,5 @@
 .dart_tool
 .packages
 
+# FVM Version Cache
+.fvm/

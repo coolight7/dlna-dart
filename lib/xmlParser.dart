@@ -1,10 +1,71 @@
 import 'package:xml/xml.dart';
 import 'dart:math';
 
-enum PlayType {
-  Video,
-  Image,
-  Audio,
+abstract class PlayType {
+  String get protocolInfo;
+}
+
+enum MediaMime implements PlayType {
+  none('');
+
+  @override
+  final String protocolInfo;
+  const MediaMime(this.protocolInfo);
+}
+
+enum VideoMime implements PlayType {
+  mpeg('http-get:*:video/mpeg:*'),
+  mp4('http-get:*:video/mp4:*'),
+  xMatroska('http-get:*:video/x-matroska:*'), // MKV
+  quicktime('http-get:*:video/quicktime:*'), // MOV
+  xMsWmv('http-get:*:video/x-ms-wmv:*'), // WMV
+  avi('http-get:*:video/avi:*'), // AVI
+  flv('http-get:*:video/flv:*'),
+  ts('http-get:*:video/mp2t:*'), // TS
+
+  // 流媒体播放列表
+  hls('http-get:*:application/vnd.apple.mpegurl:*'), // 标准的HLS MIME Type
+
+  any('http-get:*:*:*');
+
+  @override
+  final String protocolInfo;
+  const VideoMime(this.protocolInfo);
+}
+
+enum AudioMime implements PlayType {
+  mp3('http-get:*:audio/mp3:*'),
+  mp4('http-get:*:audio/mp4:*'),
+  mpeg('http-get:*:audio/mpeg:*'),
+  xFlac('http-get:*:audio/x-flac:*'),
+  mpegurl('http-get:*:audio/mpegurl:*'),
+  wav('http-get:*:audio/wav:*'),
+  wma('http-get:*:audio/wma:*'),
+  xMatroska('http-get:*:audio/x-matroska:*'),
+  xApe('http-get:*:audio/x-ape:*'),
+  any('http-get:*:*:*');
+
+  @override
+  final String protocolInfo;
+  const AudioMime(this.protocolInfo);
+}
+
+enum ImageMime implements PlayType {
+  jpeg('http-get:*:image/jpeg:*'),
+  png('http-get:*:image/png:*'),
+  tiff('http-get:*:image/tiff:*'),
+  gif('http-get:*:image/gif:*'),
+  any('http-get:*:*:*');
+
+  @override
+  final String protocolInfo;
+  const ImageMime(this.protocolInfo);
+}
+
+extension XmlExtension on XmlNode {
+  String tagVal(String name) {
+    return this.findAllElements(name).first.innerText;
+  }
 }
 
 class DeviceInfo {
@@ -47,9 +108,9 @@ class PositionParser {
       return;
     }
     final doc = XmlDocument.parse(text);
-    final duration = doc.findAllElements('TrackDuration').first.text;
-    final rel = doc.findAllElements('RelTime').first.text;
-    final abs = doc.findAllElements('AbsTime').first.text;
+    final duration = doc.tagVal('TrackDuration');
+    final rel = doc.tagVal('RelTime');
+    final abs = doc.tagVal('AbsTime');
     if (duration.isNotEmpty) {
       TrackDuration = duration;
     }
@@ -59,7 +120,7 @@ class PositionParser {
     if (abs.isNotEmpty) {
       AbsTime = abs;
     }
-    TrackURI = doc.findAllElements('TrackURI').first.text;
+    TrackURI = doc.tagVal('TrackURI');
   }
 
   String seek(int n) {
@@ -102,7 +163,7 @@ class VolumeParser {
   int current = 0;
   VolumeParser(String text) {
     final doc = XmlDocument.parse(text);
-    String v = doc.findAllElements('CurrentVolume').first.text;
+    String v = doc.tagVal('CurrentVolume');
     current = int.parse(v);
   }
 
@@ -123,10 +184,8 @@ class TransportInfoParser {
   String CurrentTransportStatus = '';
   TransportInfoParser(String text) {
     final doc = XmlDocument.parse(text);
-    CurrentTransportState =
-        doc.findAllElements('CurrentTransportState').first.text;
-    CurrentTransportStatus =
-        doc.findAllElements('CurrentTransportStatus').first.text;
+    CurrentTransportState = doc.tagVal('CurrentTransportState');
+    CurrentTransportStatus = doc.tagVal('CurrentTransportStatus');
   }
 }
 
@@ -141,9 +200,9 @@ class MediaInfoParser {
 
   MediaInfoParser(String text) {
     final doc = XmlDocument.parse(text);
-    MediaDuration = doc.findAllElements('MediaDuration').first.text;
-    CurrentURI = doc.findAllElements('CurrentURI').first.text;
-    NextURI = doc.findAllElements('NextURI').first.text;
+    MediaDuration = doc.tagVal('MediaDuration');
+    CurrentURI = doc.tagVal('CurrentURI');
+    NextURI = doc.tagVal('NextURI');
   }
 }
 
@@ -156,19 +215,21 @@ class DeviceInfoParser {
   DeviceInfo parse(Uri uri) {
     String URLBase = "";
     try {
-      URLBase = doc.findAllElements('URLBase').first.text;
+      URLBase = doc.tagVal('URLBase');
     } catch (e) {
       URLBase = uri.origin;
     }
-    final deviceType = doc.findAllElements('deviceType').first.text;
-    final friendlyName = doc.findAllElements('friendlyName').first.text;
-    final serviceList =
-        doc.findAllElements('serviceList').first.findAllElements('service');
+    final deviceType = doc.tagVal('deviceType');
+    final friendlyName = doc.tagVal('friendlyName');
+    final serviceList = doc
+        .findAllElements('serviceList')
+        .first
+        .findAllElements('service');
     final serviceListItems = [];
     for (final service in serviceList) {
-      final serviceType = service.findElements('serviceType').first.text;
-      final serviceId = service.findElements('serviceId').first.text;
-      final controlURL = service.findElements('controlURL').first.text;
+      final serviceType = service.tagVal('serviceType');
+      final serviceId = service.tagVal('serviceId');
+      final controlURL = service.tagVal('controlURL');
       serviceListItems.add({
         "serviceType": serviceType,
         "serviceId": serviceId,
